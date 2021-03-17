@@ -8,9 +8,11 @@
 static const int RXPin = 6, TXPin = 5; // e.g. ensure pin 4 on arduino is linked to TX on GPS 
 static const uint32_t GPSBaud = 9600;
 static const int MPU_ADDR = 0x68;
+static const String fileName = "data.csv";
 
 TinyGPSPlus gps;
 SoftwareSerial ss(RXPin, TXPin);
+File file;
 int16_t accelerometer_x, accelerometer_y, accelerometer_z; // variables for accelerometer raw data
 
 void setup()
@@ -19,7 +21,7 @@ void setup()
 
   // setup SD card
   if (!SD.begin(4)) {
-    Serial.println("initialization failed!");
+    Serial.println("SD Card initialization failed!");
     while (1);
   }
   Serial.println("SD Card initialization done.");
@@ -33,6 +35,9 @@ void setup()
   Wire.write(0x6B); // PWR_MGMT_1 register
   Wire.write(0); // set to zero (wakes up the MPU-6050)
   Wire.endTransmission(true);
+
+  // setup file to write to
+  file = SD.open(fileName, FILE_WRITE);
 }
 
 void loop()
@@ -67,55 +72,47 @@ void getInfo()
   bool gpsTimeValid = gps.time.isValid();
   
   if (gpsLocationValid && gpsDateValid && gpsTimeValid) {
-    float lat = gps.location.lat();
-    float lng = gps.location.lng();
-
     setTime(gps.time.hour(), gps.time.minute(), gps.time.second(), gps.date.day(), gps.date.month(), gps.date.year());
-    long epoch_utc = now();
 
-    String dataString = String(
-      String(lat, 6) + "," + String(lng, 6)
-      + "," + String(epoch_utc)
-      + "," + String(accelerometer_x) + "," + String(accelerometer_y) + "," + String(accelerometer_z)
-    );
+    char lat[6]; dtostrf(gps.location.lat(), 4, 6, lat);
+    char lng[6]; dtostrf(gps.location.lng(), 4, 6, lng);
 
-    Serial.println(dataString);
-    writeToFile("data.csv", dataString);
+    char dataString[50]; sprintf(dataString, "%s,%s,%lu,%d,%d,%d", lat, lng, (unsigned long) now(), accelerometer_x, accelerometer_y, accelerometer_z);
+    writeToFile(dataString);
   }
 
   delay(1000);
 }
 
-void removeFile(String fileName) {
-   // filename must include extension
-   if(SD.exists(fileName)) {
-    Serial.println("Removing file.");
-    SD.remove(fileName);
-    Serial.println("Successfully removed file.");
-  }
-}
-
-void writeToFile(String fileName, String row) {
-  File file = SD.open(fileName, FILE_WRITE);
+void writeToFile(String row) {
+  Serial.println("Writing to file.");
   if(file) {
-    Serial.println("Writing to file.");
     file.println(row);
-    file.close();
+    Serial.println(row);
     Serial.println("Finished writing to file.");
   } else {
     Serial.println("Error opening file.");
   }
 }
 
-void readFromFile(String fileName) {
-  File file = SD.open(fileName);
-  if (file) {
-    Serial.println("Reading from file.");
-    while (file.available()) {
-      Serial.write(file.read());
-    }
-    file.close();
-  } else {
-    Serial.println("Error opening file.");
-  }
-}
+//void removeFile(String fileName) {
+//   // filename must include extension
+//   if(SD.exists(fileName)) {
+//    Serial.println("Removing file.");
+//    SD.remove(fileName);
+//    Serial.println("Successfully removed file.");
+//  }
+//}
+//
+//void readFromFile(String fileName) {
+//  File file = SD.open(fileName);
+//  if (file) {
+//    Serial.println("Reading from file.");
+//    while (file.available()) {
+//      Serial.write(file.read());
+//    }
+//    file.close();
+//  } else {
+//    Serial.println("Error opening file.");
+//  }
+//}
