@@ -4,20 +4,31 @@
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <SD.h>
+#include <LiquidCrystal.h>
 
-static const int RXPin = 6, TXPin = 5; // e.g. ensure pin 4 on arduino is linked to TX on GPS 
+static const int RXPin = 6, TXPin = 5; // e.g. ensure pin 6 on arduino is linked to TX on GPS 
 static const uint32_t GPSBaud = 9600;
 static const int MPU_ADDR = 0x68;
 static const String fileName = "data.csv";
+const int rs = 7, en = 8, d4 = 9, d5 = 10, d6 = 3, d7 = 2;
+int16_t accelerometer_x, accelerometer_y, accelerometer_z; // variables for accelerometer raw data
 
 TinyGPSPlus gps;
 SoftwareSerial ss(RXPin, TXPin);
 File file;
-int16_t accelerometer_x, accelerometer_y, accelerometer_z; // variables for accelerometer raw data
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
 
 void setup()
-{
+{  
   Serial.begin(9600);
+
+//  // setup LCD screen
+//  delay(1000);
+//  lcd.begin(16, 2);                          // put your LCD parameters here
+//  lcd.print("hello");
+//  lcd.setCursor(0,1);
+//  lcd.print("it works");
 
   // setup SD card
   if (!SD.begin(4)) {
@@ -41,13 +52,13 @@ void setup()
 }
 
 void loop()
-{   
-  while (ss.available() > 0)
-    if (gps.encode(ss.read()))
-      getInfo();
-
-  if (millis() > 5000 && gps.charsProcessed() < 10)
-    doNotAvailable();
+{ 
+//  while (ss.available() > 0)
+//    if (gps.encode(ss.read()))
+//      getInfo();
+//
+//  if (millis() > 5000 && gps.charsProcessed() < 10)
+//    doNotAvailable();
 }
 
 void doNotAvailable() {
