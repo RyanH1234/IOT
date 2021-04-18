@@ -6,17 +6,12 @@
 #include <SD.h>
 #include <LiquidCrystal.h>
 
-static const int RXPin = 6, TXPin = 5; // e.g. ensure pin 6 on arduino is linked to TX on GPS 
-static const uint32_t GPSBaud = 9600;
 static const int MPU_ADDR = 0x68;
-static const String fileName = "data.csv";
-const int rs = 7, en = 8, d4 = 9, d5 = 10, d6 = 3, d7 = 2;
-int16_t accelerometer_x, accelerometer_y, accelerometer_z; // variables for accelerometer raw data
+const char* fileName = "DATA.CSV";
 
 TinyGPSPlus gps;
-SoftwareSerial ss(RXPin, TXPin);
-File file;
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+SoftwareSerial ss(6, 5); // e.g. ensure pin 6 on arduino is linked to TX on GPS 
+LiquidCrystal lcd(7, 8, 9, 4, 3, 2); // rs, en, d4, d5, d6, d7
 
 
 void setup()
@@ -33,35 +28,31 @@ void setup()
   lcd.setCursor(0,0);     
 
   // setup SD card
-  if (!SD.begin(4)) {
+  if (!SD.begin(10)) {
     lcd.print("SD Card failed!");
-    Serial.println("SD Card failed!");
+    Serial.println(F("SD Card failed!"));
     while (1);
   }
   lcd.print("SD Card done.");
-  Serial.println("SD Card done.");
+  Serial.println(F("SD Card done."));
   
   // setup GPS
-  ss.begin(GPSBaud);
+  ss.begin(9600);
 
   // setup accelerometer
   Wire.begin();
   Wire.beginTransmission(MPU_ADDR); // Begins a transmission to the I2C slave (GY-521 board)
   Wire.write(0x6B); // PWR_MGMT_1 register
   Wire.write(0); // set to zero (wakes up the MPU-6050)
-  Wire.endTransmission(true);
-
-  // setup file to write to
-  file = SD.open(fileName, FILE_WRITE);
+  Wire.endTransmission(true);  
 }
 
 void loop()
-{ 
+{   
   lcd.setCursor(0, 0);
   lcd.print("Select mode.");
-
   
-  if(digitalRead(14) == HIGH) {
+  if(digitalRead(14) == HIGH) {      
     lcd.clear();
     lcd.print("Selected record.");
 
@@ -76,12 +67,12 @@ void loop()
   } else if(digitalRead(15) == HIGH) {
     lcd.clear();
     lcd.print("Selected reset.");
-    removeFile(fileName);
+    removeFile();
     while(1);
   } else if(digitalRead(16) == HIGH) {
     lcd.clear();
-    lcd.print("Selected upload.");
-    readFromFile(fileName);
+    lcd.print("Selected read.");
+    readFromDisk();
     while(1);
   }
 }
@@ -94,7 +85,7 @@ void doNotAvailable() {
 }
 
 void getInfo()
-{
+{ 
   lcd.setCursor(0,0);
   lcd.print("Retrieving info.");
   
@@ -103,68 +94,71 @@ void getInfo()
   Wire.write(0x3B);
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_ADDR, 3*2, true);
-  
-  accelerometer_x = Wire.read()<<8 | Wire.read();
-  accelerometer_y = Wire.read()<<8 | Wire.read();
-  accelerometer_z = Wire.read()<<8 | Wire.read();
-
-  bool gpsLocationValid = gps.location.isValid();
-  bool gpsDateValid = gps.date.isValid();
-  bool gpsTimeValid = gps.time.isValid();
-  
-  if (gpsLocationValid && gpsDateValid && gpsTimeValid) {
+    
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
     setTime(gps.time.hour(), gps.time.minute(), gps.time.second(), gps.date.day(), gps.date.month(), gps.date.year());
 
-    char lat[6]; dtostrf(gps.location.lat(), 4, 6, lat);
-    char lng[6]; dtostrf(gps.location.lng(), 4, 6, lng);
+    char lat[12]; dtostrf(gps.location.lat(), 4, 6, lat);
+    char lng[12]; dtostrf(gps.location.lng(), 4, 6, lng);
 
-    char dataString[50]; sprintf(dataString, "%s,%s,%lu,%d,%d,%d", lat, lng, (unsigned long) now(), accelerometer_x, accelerometer_y, accelerometer_z);
+    char dataString[50]; 
+    
+    sprintf(
+      dataString, 
+      "%s,%s,%lu,%d,%d,%d", 
+      lat, 
+      lng, 
+      (unsigned long) now(), 
+      Wire.read()<<8 | Wire.read(), // accelerometer x
+      Wire.read()<<8 | Wire.read(), // accelerometer y
+      Wire.read()<<8 | Wire.read() // accelerometer z
+    );
+
+    File file = SD.open(fileName, FILE_WRITE);
     Serial.println(dataString);
-    writeToFile(dataString);
+    file.println(dataString);
+    file.close();
   }
   
-  delay(1000);
   lcd.clear();
+  delay(1000);
+  return;
 }
 
-void writeToFile(String row) {
-  if(file) {
-    file.println(row);
-    lcd.setCursor(0,1);
-    lcd.println("Written to file.");
-  } else {
-    Serial.println("Error opening file.");
-    lcd.setCursor(0,0);
-    lcd.print("Error opening file.");
-  }
-}
-
-void removeFile(String fileName) {
+void removeFile() {
    lcd.clear();
    
    // filename must include extension
    if(SD.exists(fileName)) {
-    Serial.println("Removing file.");
-    SD.remove(fileName);
-    Serial.println("Successfully removed file.");
+    Serial.println(F("Removing file."));
+    
+    if(SD.remove(fileName)) {
+      lcd.print("Removed file.");
+      Serial.println(F("Successfully removed file."));
+    } else {
+      lcd.print("Unsuccessful");
+      Serial.println(F("Unsuccessfully removed file."));
+    }
   } else {
-    Serial.println("File doesn't exist");
-    lcd.print("File doesn't exist");
+    Serial.println(F("File doesn't exist"));
+    lcd.print("File DNE");
   }
 }
 
-void readFromFile(String fileName) {
+void readFromDisk() {
   lcd.clear();
-  
-  File file = SD.open(fileName);
-  if (file) {
-    Serial.println("Reading from file.");
+
+  Serial.println(SD.exists(fileName));
+
+  if(SD.exists(fileName)) {
+    Serial.println(F("Reading from file."));
+    File file = SD.open(fileName);
     while (file.available()) {
       Serial.write(file.read());
     }
     file.close();
   } else {
-    Serial.println("Error opening file.");
-    lcd.print("File doesn't exist");
+    Serial.println(F("File doesn't exist"));
+    lcd.print("File DNE");    
   }
 }
