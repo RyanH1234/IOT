@@ -25,17 +25,18 @@ void setup()
 
   // setup LCD screen
   lcd.begin(16, 2); 
-  lcd.setCursor(0,0);     
-
+  
   // setup SD card
+  lcd.clear();
   if (!SD.begin(10)) {
-    lcd.print("SD Card failed!");
+    lcd.print(F("SD Card failed!"));
     Serial.println(F("SD Card failed!"));
     while (1);
+  } else {
+    lcd.print(F("SD Card done."));
+    Serial.println(F("SD Card done."));
   }
-  lcd.print("SD Card done.");
-  Serial.println(F("SD Card done."));
-  
+
   // setup GPS
   ss.begin(9600);
 
@@ -44,17 +45,21 @@ void setup()
   Wire.beginTransmission(MPU_ADDR); // Begins a transmission to the I2C slave (GY-521 board)
   Wire.write(0x6B); // PWR_MGMT_1 register
   Wire.write(0); // set to zero (wakes up the MPU-6050)
-  Wire.endTransmission(true);  
+  Wire.endTransmission(true); 
+
+  delay(1000);
+
+  lcd.clear();
 }
 
 void loop()
 {   
   lcd.setCursor(0, 0);
-  lcd.print("Select mode.");
+  lcd.print(F("Select mode."));
   
   if(digitalRead(14) == HIGH) {      
     lcd.clear();
-    lcd.print("Selected record.");
+    lcd.print(F("Selected record."));
 
     while(true) {
       while (ss.available() > 0)
@@ -66,12 +71,12 @@ void loop()
     }
   } else if(digitalRead(15) == HIGH) {
     lcd.clear();
-    lcd.print("Selected reset.");
+    lcd.print(F("Selected reset."));
     removeFile();
     while(1);
   } else if(digitalRead(16) == HIGH) {
     lcd.clear();
-    lcd.print("Selected read.");
+    lcd.print(F("Selected read."));
     readFromDisk();
     while(1);
   }
@@ -79,7 +84,7 @@ void loop()
 
 void doNotAvailable() {
   Serial.println(F("No GPS detected: check wiring."));
-  lcd.print("No GPS detected.");
+  lcd.print(F("No GPS detected."));
   
   while(true);
 }
@@ -87,7 +92,7 @@ void doNotAvailable() {
 void getInfo()
 { 
   lcd.setCursor(0,0);
-  lcd.print("Retrieving info.");
+  lcd.print(F("Retrieving info."));
   
   // tell MPU-6050 we want to read
   Wire.beginTransmission(MPU_ADDR);
@@ -120,28 +125,27 @@ void getInfo()
     file.close();
   }
   
-  lcd.clear();
   delay(1000);
   return;
 }
 
 void removeFile() {
-   lcd.clear();
-   
+   lcd.setCursor(0,0);
+
    // filename must include extension
    if(SD.exists(fileName)) {
     Serial.println(F("Removing file."));
     
     if(SD.remove(fileName)) {
-      lcd.print("Removed file.");
+      lcd.print(F("Removed file."));
       Serial.println(F("Successfully removed file."));
     } else {
-      lcd.print("Unsuccessful");
+      lcd.print(F("Unsuccessful"));
       Serial.println(F("Unsuccessfully removed file."));
     }
   } else {
     Serial.println(F("File doesn't exist"));
-    lcd.print("File DNE");
+    lcd.print(F("File DNE"));
   }
 }
 
@@ -159,6 +163,6 @@ void readFromDisk() {
     file.close();
   } else {
     Serial.println(F("File doesn't exist"));
-    lcd.print("File DNE");    
+    lcd.print(F("File DNE"));    
   }
 }
