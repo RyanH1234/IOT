@@ -49,6 +49,12 @@ void setup()
 
   delay(1000);
 
+  // calibration for accelerometer
+  lcd.clear();
+  lcd.print(F("Calibrate start"));
+
+  delay(1000);
+
   lcd.clear();
 }
 
@@ -98,7 +104,7 @@ void getInfo()
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(0x3B);
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU_ADDR, 3*2, true);
+  Wire.requestFrom(MPU_ADDR, 6, true);
     
   if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
     setTime(gps.time.hour(), gps.time.minute(), gps.time.second(), gps.date.day(), gps.date.month(), gps.date.year());
@@ -106,17 +112,28 @@ void getInfo()
     char lat[12]; dtostrf(gps.location.lat(), 4, 6, lat);
     char lng[12]; dtostrf(gps.location.lng(), 4, 6, lng);
 
-    char dataString[50]; 
+    char dataString[80]; 
+
+    // default +- 2g range 
+    // please refer to - https://howtomechatronics.com/tutorials/arduino/arduino-and-mpu6050-accelerometer-and-gyroscope-tutorial/  
+
+    float x_float = (Wire.read()<<8 | Wire.read()) / 16384.0;
+    float y_float = (Wire.read()<<8 | Wire.read()) / 16384.0;
+    float z_float = (Wire.read()<<8 | Wire.read()) / 16384.0;
     
+    char accelerometer_x[12]; dtostrf(x_float, 5, 2, accelerometer_x);
+    char accelerometer_y[12]; dtostrf(y_float, 5, 2, accelerometer_y);
+    char accelerometer_z[12]; dtostrf(z_float, 5, 2, accelerometer_z);
+
     sprintf(
       dataString, 
-      "%s,%s,%lu,%d,%d,%d", 
+      "%s,%s,%lu,%s,%s,%s", 
       lat, 
       lng, 
       (unsigned long) now(), 
-      Wire.read()<<8 | Wire.read(), // accelerometer x
-      Wire.read()<<8 | Wire.read(), // accelerometer y
-      Wire.read()<<8 | Wire.read() // accelerometer z
+      accelerometer_x,
+      accelerometer_y,
+      accelerometer_z
     );
 
     File file = SD.open(fileName, FILE_WRITE);
